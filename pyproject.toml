@@ -1,0 +1,47 @@
+
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cssselector"
+version = "1.0.0"
+dependencies = []
+requires-python = ">=3.12"
+authors = [
+  {name = "tikubonn"}
+]
+maintainers = [
+  {name = "tikubonn"}
+]
+description = "It provides the ability to parse any CSS selector and validate matching statements."
+readme = "README.md"
+license = "AGPL-3.0"
+license-files = ["LICEN[CS]E"]
+keywords = []
+classifiers = [
+  "Programming Language :: Python"
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest"
+]
+
+[project.urls]
+Homepage = "https://github.com/tikubonn/cssselector"
+Documentation = "https://github.com/tikubonn/cssselector/README.md"
+Repository = "https://github.com/tikubonn/cssselector.git"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = [
+  "cssselector"
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-v"
+testpaths = [
+  "test"
+]
