@@ -88,110 +88,91 @@ def test_parse_selector ():
 
   #...
 
-  sel = selector.parse_selector("a", match_anywhere=True, match_children=True)
+  sel = selector.parse_selector("a")
   assert isinstance(sel, Selector_MatchAnywhere)
-  assert isinstance(sel.selector, Selector_Element)
-  assert sel.selector.tag == "a"
-  assert sel.selector.attribute_selectors == []
+  assert isinstance(sel.selector, Selector_Son)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert sel.selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector, Selector_MatchLast)
 
   #...
 
-  sel = selector.parse_selector("a", match_anywhere=False, match_children=False)
-  assert isinstance(sel, Selector_MatchLast)
-  assert isinstance(sel.selector, Selector_Element)
-  assert sel.selector.tag == "a"
-  assert sel.selector.attribute_selectors == []
-
-  #...
-
-  sel = selector.parse_selector("a", match_anywhere=True, match_children=False)
+  sel = selector.parse_selector("a.abc")
   assert isinstance(sel, Selector_MatchAnywhere)
-  assert isinstance(sel.selector, Selector_MatchLast)
-  assert isinstance(sel.selector.selector, Selector_Element)
-  assert sel.selector.selector.tag == "a"
-  assert sel.selector.selector.attribute_selectors == []
+  assert isinstance(sel.selector, Selector_Son)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert isinstance(sel.selector.cur_selector.attribute_selectors, list)
+  assert len(sel.selector.cur_selector.attribute_selectors) == 1
+  assert isinstance(sel.selector.cur_selector.attribute_selectors[0], AttributeSelector_ContainsWithSeparator)
+  assert sel.selector.cur_selector.attribute_selectors[0].name == "class"
+  assert sel.selector.cur_selector.attribute_selectors[0].value == "abc"
 
   #...
 
-  sel = selector.parse_selector("a", match_anywhere=False, match_children=True)
-  assert isinstance(sel, Selector_Element)
-  assert sel.tag == "a"
-  assert sel.attribute_selectors == []
+  sel = selector.parse_selector("a#abc")
+  assert isinstance(sel, Selector_MatchAnywhere)
+  assert isinstance(sel.selector, Selector_Son)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert isinstance(sel.selector.cur_selector.attribute_selectors, list)
+  assert len(sel.selector.cur_selector.attribute_selectors) == 1
+  assert isinstance(sel.selector.cur_selector.attribute_selectors[0], AttributeSelector_Equal)
+  assert sel.selector.cur_selector.attribute_selectors[0].name == "id"
+  assert sel.selector.cur_selector.attribute_selectors[0].value == "abc"
 
   #...
 
-  sel = selector.parse_selector("a.abc", match_anywhere=False, match_children=True)
-  assert isinstance(sel, Selector_Element)
-  assert sel.tag == "a"
-
-  assert isinstance(sel.attribute_selectors, list)
-  assert len(sel.attribute_selectors) == 1
-
-  assert isinstance(sel.attribute_selectors[0], AttributeSelector_ContainsWithSeparator)
-  assert sel.attribute_selectors[0].name == "class"
-  assert sel.attribute_selectors[0].value == "abc"
-
-  #...
-
-  sel = selector.parse_selector("a#abc", match_anywhere=False, match_children=True)
-  assert isinstance(sel, Selector_Element)
-  assert sel.tag == "a"
-
-  assert isinstance(sel.attribute_selectors, list)
-  assert len(sel.attribute_selectors) == 1
-
-  assert isinstance(sel.attribute_selectors[0], AttributeSelector_Equal)
-  assert sel.attribute_selectors[0].name == "id"
-  assert sel.attribute_selectors[0].value == "abc"
+  sel = selector.parse_selector("a[a=\"1\"][b][c]")
+  assert isinstance(sel, Selector_MatchAnywhere)
+  assert isinstance(sel.selector, Selector_Son)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert isinstance(sel.selector.cur_selector.attribute_selectors, list)
+  assert len(sel.selector.cur_selector.attribute_selectors) == 3
+  assert isinstance(sel.selector.cur_selector.attribute_selectors[0], AttributeSelector_Equal)
+  assert sel.selector.cur_selector.attribute_selectors[0].name == "a"
+  assert sel.selector.cur_selector.attribute_selectors[0].value == "1"
+  assert isinstance(sel.selector.cur_selector.attribute_selectors[1], AttributeSelector_HasName)
+  assert sel.selector.cur_selector.attribute_selectors[1].name == "b"
+  assert isinstance(sel.selector.cur_selector.attribute_selectors[2], AttributeSelector_HasName)
+  assert sel.selector.cur_selector.attribute_selectors[2].name == "c"
 
   #...
 
-  sel = selector.parse_selector("a[a=\"1\"][b][c]", match_anywhere=False, match_children=True)
-  assert isinstance(sel, Selector_Element)
-  assert sel.tag == "a"
-
-  assert isinstance(sel.attribute_selectors, list)
-  assert len(sel.attribute_selectors) == 3
-
-  assert isinstance(sel.attribute_selectors[0], AttributeSelector_Equal)
-  assert sel.attribute_selectors[0].name == "a"
-  assert sel.attribute_selectors[0].value == "1"
-
-  assert isinstance(sel.attribute_selectors[1], AttributeSelector_HasName)
-  assert sel.attribute_selectors[1].name == "b"
-
-  assert isinstance(sel.attribute_selectors[2], AttributeSelector_HasName)
-  assert sel.attribute_selectors[2].name == "c"
+  sel = selector.parse_selector("a b")
+  assert isinstance(sel, Selector_MatchAnywhere)
+  assert isinstance(sel.selector, Selector_Children)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert sel.selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector, Selector_Son)
+  assert isinstance(sel.selector.next_selector.cur_selector, Selector_Element)
+  assert sel.selector.next_selector.cur_selector.tag == "b"
+  assert sel.selector.next_selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector.next_selector, Selector_MatchLast)
 
   #...
 
-  sel = selector.parse_selector("a b", match_anywhere=False, match_children=True)
-  assert isinstance(sel, Selector_Children)
-
-  assert isinstance(sel.cur_selector, Selector_Element)
-  assert sel.cur_selector.tag == "a"
-  assert sel.cur_selector.attribute_selectors == []
-
-  assert isinstance(sel.next_selector, Selector_Element)
-  assert sel.next_selector.tag == "b"
-  assert sel.next_selector.attribute_selectors == []
-
-  #...
-
-  sel = selector.parse_selector("a > b", match_anywhere=False, match_children=True)
-  assert isinstance(sel, Selector_Son)
-
-  assert isinstance(sel.cur_selector, Selector_Element)
-  assert sel.cur_selector.tag == "a"
-  assert sel.cur_selector.attribute_selectors == []
-
-  assert isinstance(sel.next_selector, Selector_Element)
-  assert sel.next_selector.tag == "b"
-  assert sel.next_selector.attribute_selectors == []
+  sel = selector.parse_selector("a > b")
+  assert isinstance(sel, Selector_MatchAnywhere)
+  assert isinstance(sel.selector, Selector_Son)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert sel.selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector, Selector_Son)
+  assert isinstance(sel.selector.next_selector.cur_selector, Selector_Element)
+  assert sel.selector.next_selector.cur_selector.tag == "b"
+  assert sel.selector.next_selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector.next_selector, Selector_MatchLast)
 
   #...
 
-  sel = selector.parse_selector("  abc  ", match_anywhere=False, match_children=True)
-  assert isinstance(sel, Selector_Element)
-  assert sel.tag == "abc"
-  assert sel.attribute_selectors == []
+  sel = selector.parse_selector("  abc  ")
+  assert isinstance(sel, Selector_MatchAnywhere)
+  assert isinstance(sel.selector, Selector_Son)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "abc"
+  assert sel.selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector, Selector_MatchLast)

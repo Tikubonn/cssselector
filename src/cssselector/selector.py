@@ -26,7 +26,7 @@ class ISelector (ABC):
   """セレクターを表現するインターフェイスです。"""
 
   @abstractmethod
-  def match (self, element_stack:list[Element], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0, *, match_anywhere:bool=True, match_children:bool=False) -> bool:
 
     """HTMLの階層に見立てたスタックが自身の条件に一致するかを判定します。
 
@@ -38,6 +38,10 @@ class ISelector (ABC):
     index : int
       判定を開始する階層の位置です。
       未指定ならば `0` が設定されます。
+    match_anywhere : bool
+      任意の位置での一致を許可するかを指定します。
+    match_children : bool
+      一致した要素の子孫に対しても一致したものとして扱うかを指定します。
 
     Returns
     -------
@@ -81,7 +85,7 @@ class Selector_Element (ISelector):
 
   """複合セレクターを表現します。
 
-  Parameters
+  Attributes
   ----------
   tag : str
     一致させるタグ名です。
@@ -93,10 +97,13 @@ class Selector_Element (ISelector):
   tag:str
   attribute_selectors:list[IAttributeSelector]
 
-  def match (self, element_stack:list[Element], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0, *, match_anywhere:bool=True, match_children:bool=False) -> bool:
     if index < len(element_stack):
       tag, attributes = element_stack[index]
-      return (not self.tag or self.tag == tag) and all((sel.match(attributes) for sel in self.attribute_selectors))
+      return (
+        (not self.tag or self.tag == tag) and 
+        all((sel.match(attributes) for sel in self.attribute_selectors))
+      )
     else:
       return False
 
@@ -105,7 +112,7 @@ class Selector_Children (ISelector, IGeneratableFromStack):
 
   """子孫結合子を表現します。
 
-  Parameters
+  Attributes
   ----------
   cur_selector : ISelector
     親要素を表すセレクターです。
@@ -116,8 +123,11 @@ class Selector_Children (ISelector, IGeneratableFromStack):
   cur_selector:ISelector
   next_selector:ISelector
 
-  def match (self, element_stack:list[Element], index:int=0) -> bool:
-    return self.cur_selector.match(element_stack, index) and any((self.next_selector.match(element_stack, i) for i in range(index +1, len(element_stack))))
+  def match (self, element_stack:list[Element], index:int=0, *, match_anywhere:bool=True, match_children:bool=False) -> bool:
+    return (
+      self.cur_selector.match(element_stack, index, match_anywhere=match_anywhere, match_children=match_children) and 
+      any((self.next_selector.match(element_stack, i, match_anywhere=match_anywhere, match_children=match_children) for i in range(index +1, len(element_stack))))
+    )
 
   @classmethod
   def from_stack (cls, selector_stack:list[ISelector]) -> Self:
@@ -130,7 +140,7 @@ class Selector_Son (ISelector, IGeneratableFromStack):
 
   """子結合子を表現します。
 
-  Parameters
+  Attributes
   ----------
   cur_selector : ISelector
     親要素を表すセレクターです。
@@ -141,8 +151,11 @@ class Selector_Son (ISelector, IGeneratableFromStack):
   cur_selector:ISelector
   next_selector:ISelector
 
-  def match (self, element_stack:list[Element], index:int=0) -> bool:
-    return self.cur_selector.match(element_stack, index) and self.next_selector.match(element_stack, index +1)
+  def match (self, element_stack:list[Element], index:int=0, *, match_anywhere:bool=True, match_children:bool=False) -> bool:
+    return (
+      self.cur_selector.match(element_stack, index, match_anywhere=match_anywhere, match_children=match_children) and 
+      self.next_selector.match(element_stack, index +1, match_anywhere=match_anywhere, match_children=match_children)
+    )
 
   @classmethod
   def from_stack (cls, selector_stack:list[ISelector]) -> Self:
@@ -153,9 +166,13 @@ class Selector_Son (ISelector, IGeneratableFromStack):
 @dataclass
 class Selector_MatchAnywhere (ISelector, IGeneratableFromStack):
 
-  """指定セレクターが一致するまで、あらゆる位置で一致判定を試行します。
+  """引数 `match_anywhere` が有効ならば、任意の位置からの一致を検証します。
 
-  Parameters
+  Notes
+  -----
+  関数 `parse_selector` によって作成された `ISelector` インスタンスは必ず本オブジェクトを所有します。
+
+  Attributes
   ----------
   selector : ISelector
     一致を試みるセレクターです。
@@ -163,8 +180,12 @@ class Selector_MatchAnywhere (ISelector, IGeneratableFromStack):
 
   selector:ISelector
 
-  def match (self, element_stack:list[Element], index:int=0) -> bool:
-    return any((self.selector.match(element_stack, i) for i in range(len(element_stack))))
+  def match (self, element_stack:list[Element], index:int=0, *, match_anywhere:bool=True, match_children:bool=False) -> bool:
+    if match_anywhere:
+      return any((self.selector.match(element_stack, i, match_anywhere=match_anywhere, match_children=match_children) for i in range(len(element_stack))))
+    else:
+      return self.selector.match(element_stack, 0, match_anywhere=match_anywhere, match_children=match_children)
+
 
   @classmethod
   def from_stack (cls, selector_stack:list[ISelector]) -> Self:
@@ -172,25 +193,20 @@ class Selector_MatchAnywhere (ISelector, IGeneratableFromStack):
     return cls(selector)
 
 @dataclass
-class Selector_MatchLast (ISelector, IGeneratableFromStack):
+class Selector_MatchLast (ISelector):
 
-  """指定セレクターが最下層で一致するかを判定します。
+  """引数 `match_children` が有効ならば、引数 `element_stack` の終端に一致します。
 
-  Parameters
-  ----------
-  selector : ISelector
-    一致を試みるセレクターです。
+  Notes
+  -----
+  関数 `parse_selector` によって作成された `ISelector` インスタンスは必ず本オブジェクトを所有します。
   """
 
-  selector:ISelector
-
-  def match (self, element_stack:list[Element], index:int=0) -> bool:
-    return index +1 == len(element_stack) and self.selector.match(element_stack, index)
-
-  @classmethod
-  def from_stack (cls, selector_stack:list[ISelector]) -> Self:
-    selector = selector_stack.pop()
-    return cls(selector)
+  def match (self, element_stack:list[Element], index:int=0, *, match_anywhere:bool=True, match_children:bool=False) -> bool:
+    if match_children:
+      return True
+    else:
+      return index == len(element_stack)
 
 #parser
 
@@ -260,18 +276,14 @@ def _strip (source:str) -> tuple[int, int]:
       break
   return start, end
 
-def parse_selector (source:str, *, match_anywhere:bool=True, match_children:bool=True) -> ISelector:
+def parse_selector (source:str) -> ISelector:
 
-  """セレクターのコードをパースします。
+  """CSSセレクターが記述された文字列を受け取り、マッチング用のオブジェクトを作成します。
 
   Parameters
   ----------
   source : str
-    パースするコードが記述された文字列です。
-  match_anywhere : bool
-    パースされた `ISelector` インスタンスが任意の位置で一致させるかを設定します。
-  match_children : bool
-    パースされた `ISelector` インスタンスが一致した要素の子孫に対しても一致させるかを設定します。
+    解析するコードが記述された文字列です。
 
   Returns
   -------
@@ -279,8 +291,8 @@ def parse_selector (source:str, *, match_anywhere:bool=True, match_children:bool
     パースされた `ISelector` インスタンスです。
   """
 
-  selector_stack = []
-  rel_selector_type_stack = []
+  read_sel_stack = []
+  rel_sel_type_stack = []
 
   #parse source.
 
@@ -304,14 +316,14 @@ def parse_selector (source:str, *, match_anywhere:bool=True, match_children:bool
       else:
         break
     sel = Selector_Element(tag, attribute_selectors)
-    selector_stack.append(sel)
+    read_sel_stack.append(sel)
     if index < end:
       separator, index = _read_separator(source, index, end)
       match separator.strip():
         case "":
-          rel_selector_type_stack.append(Selector_Children)
+          rel_sel_type_stack.append(Selector_Children)
         case ">":
-          rel_selector_type_stack.append(Selector_Son)
+          rel_sel_type_stack.append(Selector_Son)
         case _:
           raise ParseError.at("Read unknown separator: {:s}".format(repr(separator)), (source, index))
     else:
@@ -319,16 +331,24 @@ def parse_selector (source:str, *, match_anywhere:bool=True, match_children:bool
 
   #build selector tree.
 
-  if match_anywhere:
-    rel_selector_type_stack.insert(0, Selector_MatchAnywhere)
-  if not match_children:
-    rel_selector_type_stack.append(Selector_MatchLast)
-  if selector_stack:
-    while rel_selector_type_stack:
-      rel_selector_type = rel_selector_type_stack.pop()
-      sel = rel_selector_type.from_stack(selector_stack)
-      selector_stack.append(sel)
-    sel = selector_stack[-1]
+  if read_sel_stack:
+
+    #...
+
+    rel_sel_type_stack.insert(0, Selector_MatchAnywhere)
+
+    #...
+
+    read_sel_stack.append(Selector_MatchLast())
+    rel_sel_type_stack.append(Selector_Son)
+
+    #...
+
+    while rel_sel_type_stack:
+      rel_selector_type = rel_sel_type_stack.pop()
+      sel = rel_selector_type.from_stack(read_sel_stack)
+      read_sel_stack.append(sel)
+    sel = read_sel_stack[-1]
     return sel
   else:
     raise ParseError.at("Could not read any selector even one.", (source, index))
