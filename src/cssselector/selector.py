@@ -1,23 +1,38 @@
 
 import string
 from abc import ABC, abstractmethod
-from typing import Self
+from typing import NamedTuple, Self
 from dataclasses import dataclass
 from .exception import ParseError
 from .attribute_selector import IAttributeSelector, AttributeSelector_Equal, AttributeSelector_ContainsWithSeparator, parse_attribute_selector
+
+class Element (NamedTuple):
+
+  """HTML要素を表現するクラスです。
+
+  Attributes
+  ----------
+  tag : str
+    要素名です。
+  attrs : dict[str, str]
+    要素に設定された属性の集合です。
+  """
+
+  tag:str
+  attrs:dict[str, str]
 
 class ISelector (ABC):
 
   """セレクターを表現するインターフェイスです。"""
 
   @abstractmethod
-  def match (self, element_stack:list[tuple[str, dict[str, str]]], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0) -> bool:
 
     """HTMLの階層に見立てたスタックが自身の条件に一致するかを判定します。
 
     Parameters
     ----------
-    element_stack : list[tuple[str, dict[str, str]]]
+    element_stack : list[Element]
       HTMLの階層に見立てたスタックです。
       これはタグ名・属性の辞書のリストで表現されます。
     index : int
@@ -78,7 +93,7 @@ class Selector_Element (ISelector):
   tag:str
   attribute_selectors:list[IAttributeSelector]
 
-  def match (self, element_stack:list[tuple[str, dict[str, str]]], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0) -> bool:
     if index < len(element_stack):
       tag, attributes = element_stack[index]
       return (not self.tag or self.tag == tag) and all((sel.match(attributes) for sel in self.attribute_selectors))
@@ -101,7 +116,7 @@ class Selector_Children (ISelector, IGeneratableFromStack):
   cur_selector:ISelector
   next_selector:ISelector
 
-  def match (self, element_stack:list[tuple[str, dict[str, str]]], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0) -> bool:
     return self.cur_selector.match(element_stack, index) and any((self.next_selector.match(element_stack, i) for i in range(index +1, len(element_stack))))
 
   @classmethod
@@ -126,7 +141,7 @@ class Selector_Son (ISelector, IGeneratableFromStack):
   cur_selector:ISelector
   next_selector:ISelector
 
-  def match (self, element_stack:list[tuple[str, dict[str, str]]], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0) -> bool:
     return self.cur_selector.match(element_stack, index) and self.next_selector.match(element_stack, index +1)
 
   @classmethod
@@ -148,7 +163,7 @@ class Selector_MatchAnywhere (ISelector, IGeneratableFromStack):
 
   selector:ISelector
 
-  def match (self, element_stack:list[tuple[str, dict[str, str]]], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0) -> bool:
     return any((self.selector.match(element_stack, i) for i in range(len(element_stack))))
 
   @classmethod
@@ -169,7 +184,7 @@ class Selector_MatchLast (ISelector, IGeneratableFromStack):
 
   selector:ISelector
 
-  def match (self, element_stack:list[tuple[str, dict[str, str]]], index:int=0) -> bool:
+  def match (self, element_stack:list[Element], index:int=0) -> bool:
     return index +1 == len(element_stack) and self.selector.match(element_stack, index)
 
   @classmethod
