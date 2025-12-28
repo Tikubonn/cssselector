@@ -4,80 +4,171 @@ from cssselector import selector, ParseError, Selector_Element, Selector_Childre
 
 def test_read_tag ():
 
-  #...
-  
-  with pytest.raises(ParseError):
-    selector._read_tag("", 0, 0)
+  #非公開関数 _read_tag の動作確認を行います
 
-  #...
+  #文字列 "*" を読み込んだ場合の動作確認です
 
   tag, index = selector._read_tag("*", 0, 1)
   assert tag == ""
   assert index == 1
 
-  #...
+  #任意の有効な文字列を読み込んだ場合の動作確認です
 
   tag, index = selector._read_tag("abc def", 0, 7)
   assert tag == "abc"
   assert index == 3
 
-  #...
+  #任意の無効な文字列を読み込んだ場合の動作確認です
+
+  tag, index = selector._read_tag(".abc", 0, 5)
+  assert tag == ""
+  assert index == 0
+
+  tag, index = selector._read_tag("#abc", 0, 5)
+  assert tag == ""
+  assert index == 0
 
   tag, index = selector._read_tag("[abc]", 0, 5)
   assert tag == ""
   assert index == 0
 
+  #空文字列を読み込んだ場合に例外が発生するかを検証します
+
+  with pytest.raises(ParseError):
+    selector._read_tag("", 0, 0)
+
 def test_read_class_and_id ():
-  
-  #...
 
-  with pytest.raises(ParseError):
-    selector._read_class_and_id("", 0, 0)
-  
-  #...
+  #非公開関数 _read_class_and_id の動作を検証します
 
-  with pytest.raises(ParseError):
-    selector._read_class_and_id("-", 0, 1)
-
-  #...
+  #任意の有効な文字列を読み込んだ場合の動作確認です
 
   identifier, index = selector._read_tag("abc def", 0, 7)
   assert identifier == "abc"
   assert index == 3
 
+  #空文字列を読み込んだ場合に例外が発生するかを検証します
+
+  with pytest.raises(ParseError):
+    selector._read_class_and_id("", 0, 0)
+
+  #１文字目が無効な文字の場合に例外が発生するかを検証します
+
+  with pytest.raises(ParseError):
+    selector._read_class_and_id(" ", 0, 1)
+
 def test_read_separator ():
-  
-  #...
+
+  #非公開関数 _read_separator の動作を検証します
+
+  #空白文字のみの文字列の場合の動作確認です
+
+  separator, index = selector._read_separator("  ", 0, 2)
+  assert separator == "  "
+  assert index == 2
+
+  #空白文字と ">" を含んだ文字列の場合の動作確認です
 
   separator, index = selector._read_separator(" > ", 0, 3)
   assert separator == " > "
   assert index == 3
 
+  #空白文字と "," を含んだ文字列の場合の動作確認です
+
+  separator, index = selector._read_separator(" , ", 0, 3)
+  assert separator == " , "
+  assert index == 3
+
+  #区切り文字を含まない場合の動作確認です
+
+  separator, index = selector._read_separator("abc", 0, 3)
+  assert separator == ""
+  assert index == 0
+
+  #前方に区切り文字を含む場合の動作確認です
+
+  separator, index = selector._read_separator("  abc", 0, 3)
+  assert separator == "  "
+  assert index == 2
+
+  #後方に区切り文字を含む場合の動作確認です
+
+  separator, index = selector._read_separator("abc  ", 0, 3)
+  assert separator == ""
+  assert index == 0
+
+  #前後に区切り文字を含む場合の動作確認です
+
+  separator, index = selector._read_separator("  abc  ", 0, 3)
+  assert separator == "  "
+  assert index == 2
+
 def test_strip ():
 
-  #...
+  #_strip 関数の動作確認です
+
+  #前後に空白文字がない場合の動作確認です
 
   start, end = selector._strip("abc")
   assert start == 0
   assert end == 3
 
-  #...
+  #前方に空白文字を含む場合の動作確認です
 
   start, end = selector._strip("  abc")
   assert start == 2
   assert end == 5
 
-  #...
+  #後方に空白文字を含む場合の動作確認です
 
   start, end = selector._strip("abc  ")
   assert start == 0
   assert end == 3
 
-  #...
+  #前後に空白文字を含む場合の動作確認です
 
   start, end = selector._strip("  abc  ")
   assert start == 2
   assert end == 5
+
+  #空文字列を読み込んだ場合の動作確認です
+
+  start, end = selector._strip("")
+  assert start == 0
+  assert end == 0
+
+def test_build ():
+
+  #非公開関数 _build の動作確認を行います 
+
+  #空リストを読み込んだ場合に例外が発生するかを検証します
+
+  with pytest.raises(ParseError):
+    selector._build([], [], ("", 0))
+
+  #read_selector_stack のみに値を設定した場合の動作確認です
+
+  sel = selector._build([Selector_Element("a", [])], [], ("", 0))
+  assert isinstance(sel, Selector_MatchAnywhere)
+  assert isinstance(sel.selector, Selector_Son)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert sel.selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector, Selector_MatchLast)
+
+  #read_selector_stack, combination_selector_type_stack 両方に値を設定した場合の動作確認です
+
+  sel = selector._build([Selector_Element("a", []), Selector_Element("b", [])], [Selector_Children], ("", 0))
+  assert isinstance(sel, Selector_MatchAnywhere)
+  assert isinstance(sel.selector, Selector_Children)
+  assert isinstance(sel.selector.cur_selector, Selector_Element)
+  assert sel.selector.cur_selector.tag == "a"
+  assert sel.selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector, Selector_Son)
+  assert isinstance(sel.selector.next_selector.cur_selector, Selector_Element)
+  assert sel.selector.next_selector.cur_selector.tag == "b"
+  assert sel.selector.next_selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selector.next_selector.next_selector, Selector_MatchLast)
 
 def test_parse_selector ():
 

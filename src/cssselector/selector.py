@@ -226,17 +226,17 @@ class Selector_Or (ISelector):
 
 #parser
 
-TAG_CHARS:set[str] = set(string.ascii_letters + string.digits + "-_")
-TAG_START_CHARS:set[str] = set(string.ascii_letters)
+_TAG_CHARS:set[str] = set(string.ascii_letters + string.digits + "-_")
+_TAG_START_CHARS:set[str] = set(string.ascii_letters)
 
 def _read_tag (source:str, start:int, end:int) -> tuple[str, int]:
   if start < end:
     if source[start] == "*":
       return "", start +1
-    elif source[start] in TAG_START_CHARS:
+    elif source[start] in _TAG_START_CHARS:
       tmp = source[start]
       index = start +1
-      while index < end and source[index] in TAG_CHARS:
+      while index < end and source[index] in _TAG_CHARS:
         tmp += source[index]
         index += 1
       return tmp, index
@@ -245,15 +245,15 @@ def _read_tag (source:str, start:int, end:int) -> tuple[str, int]:
   else:
     raise ParseError.at("Reached end of data on parsing.", (source, start))
 
-CLASS_AND_ID_CHARS:set[str] = set(string.ascii_letters + string.digits + "-_")
-CLASS_AND_ID_START_CHARS:set[str] = set(string.ascii_letters)
+_CLASS_AND_ID_CHARS:set[str] = set(string.ascii_letters + string.digits + "-_")
+_CLASS_AND_ID_START_CHARS:set[str] = set(string.ascii_letters)
 
 def _read_class_and_id (source:str, start:int, end:int) -> tuple[str, int]:
   if start < end:
-    if source[start] in CLASS_AND_ID_START_CHARS:
+    if source[start] in _CLASS_AND_ID_START_CHARS:
       tmp = source[start]
       index = start +1
-      while index < end and source[index] in CLASS_AND_ID_CHARS:
+      while index < end and source[index] in _CLASS_AND_ID_CHARS:
         tmp += source[index]
         index += 1
       return tmp, index
@@ -262,12 +262,12 @@ def _read_class_and_id (source:str, start:int, end:int) -> tuple[str, int]:
   else:
     raise ParseError.at("Reached end of data on parsing.", (source, start))
 
-SEPARATOR_CHARS:set[str] = set(",> ")
+_SEPARATOR_CHARS:set[str] = set(",> ")
 
 def _read_separator (source:str, start:int, end:int) -> tuple[str, int]:
   tmp = ""
   index = start
-  while index < end and source[index] in SEPARATOR_CHARS:
+  while index < end and source[index] in _SEPARATOR_CHARS:
     tmp += source[index]
     index += 1
   return tmp, index
