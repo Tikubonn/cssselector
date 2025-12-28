@@ -1,6 +1,6 @@
 
 import pytest
-from cssselector import selector, ParseError, Selector_Element, Selector_Children, Selector_Son, Selector_MatchAnywhere, Selector_MatchLast, AttributeSelector_HasName, AttributeSelector_Equal, AttributeSelector_ContainsWithSeparator
+from cssselector import selector, ParseError, Selector_Element, Selector_Children, Selector_Son, Selector_MatchAnywhere, Selector_MatchLast, AttributeSelector_HasName, AttributeSelector_Equal, Selector_Or, AttributeSelector_ContainsWithSeparator
 
 def test_read_tag ():
 
@@ -176,3 +176,25 @@ def test_parse_selector ():
   assert sel.selector.cur_selector.tag == "abc"
   assert sel.selector.cur_selector.attribute_selectors == []
   assert isinstance(sel.selector.next_selector, Selector_MatchLast)
+
+  #...
+
+  sel = selector.parse_selector("a,b,c")
+  assert isinstance(sel, Selector_Or)
+  assert isinstance(sel.selectors, list)
+  assert len(sel.selectors) == 3
+  assert isinstance(sel.selectors[0], Selector_MatchAnywhere)
+  assert isinstance(sel.selectors[0].selector, Selector_Son)
+  assert isinstance(sel.selectors[0].selector.cur_selector, Selector_Element)
+  assert sel.selectors[0].selector.cur_selector.tag == "a"
+  assert sel.selectors[0].selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selectors[1], Selector_MatchAnywhere)
+  assert isinstance(sel.selectors[1].selector, Selector_Son)
+  assert isinstance(sel.selectors[1].selector.cur_selector, Selector_Element)
+  assert sel.selectors[1].selector.cur_selector.tag == "b"
+  assert sel.selectors[1].selector.cur_selector.attribute_selectors == []
+  assert isinstance(sel.selectors[2], Selector_MatchAnywhere)
+  assert isinstance(sel.selectors[2].selector, Selector_Son)
+  assert isinstance(sel.selectors[2].selector.cur_selector, Selector_Element)
+  assert sel.selectors[2].selector.cur_selector.tag == "c"
+  assert sel.selectors[2].selector.cur_selector.attribute_selectors == []

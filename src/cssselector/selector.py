@@ -1,7 +1,7 @@
 
 import string
 from abc import ABC, abstractmethod
-from typing import NamedTuple, Self
+from typing import NamedTuple, Self, Type
 from dataclasses import dataclass
 from .exception import ParseError
 from .attribute_selector import IAttributeSelector, AttributeSelector_Equal, AttributeSelector_ContainsWithSeparator, parse_attribute_selector
@@ -208,6 +208,22 @@ class Selector_MatchLast (ISelector):
     else:
       return index == len(element_stack)
 
+@dataclass
+class Selector_Or (ISelector):
+
+  """...
+
+  Attributes
+  ----------
+  selectors : list[ISelector]
+    ...
+  """
+
+  selectors:list[ISelector]
+
+  def match (self, element_stack:list[Element], index:int=0, *, match_anywhere:bool=True, match_children:bool=False) -> bool:
+    return any((sel.match(element_stack, index, match_anywhere=match_anywhere, match_children=match_children) for sel in self.selectors))
+
 #parser
 
 TAG_CHARS:set[str] = set(string.ascii_letters + string.digits + "-_")
@@ -246,7 +262,7 @@ def _read_class_and_id (source:str, start:int, end:int) -> tuple[str, int]:
   else:
     raise ParseError.at("Reached end of data on parsing.", (source, start))
 
-SEPARATOR_CHARS:set[str] = set("> ")
+SEPARATOR_CHARS:set[str] = set(",> ")
 
 def _read_separator (source:str, start:int, end:int) -> tuple[str, int]:
   tmp = ""
@@ -276,6 +292,18 @@ def _strip (source:str) -> tuple[int, int]:
       break
   return start, end
 
+def _build (read_selector_stack:list[ISelector], combination_selector_type_stack:list[Type[IGeneratableFromStack]], source_and_pos:tuple[str, int]) -> ISelector:
+  if read_selector_stack:
+    sel_stack = [] + read_selector_stack + [Selector_MatchLast()]
+    comb_sel_type_stack = [Selector_MatchAnywhere] + combination_selector_type_stack + [Selector_Son]
+    while comb_sel_type_stack:
+      comb_sel_type = comb_sel_type_stack.pop()
+      comb_sel = comb_sel_type.from_stack(sel_stack)
+      sel_stack.append(comb_sel)
+    return sel_stack[-1]
+  else:
+    raise ParseError.at("Argument `read_selector_stack` given an empty list.", source_and_pos)
+
 def parse_selector (source:str) -> ISelector:
 
   """CSSセレクターが記述された文字列を受け取り、マッチング用のオブジェクトを作成します。
@@ -292,9 +320,8 @@ def parse_selector (source:str) -> ISelector:
   """
 
   read_sel_stack = []
-  rel_sel_type_stack = []
-
-  #parse source.
+  comb_sel_type_stack = []
+  built_sels = []
 
   start, end = _strip(source)
   index = start
@@ -321,34 +348,23 @@ def parse_selector (source:str) -> ISelector:
       separator, index = _read_separator(source, index, end)
       match separator.strip():
         case "":
-          rel_sel_type_stack.append(Selector_Children)
+          comb_sel_type_stack.append(Selector_Children)
         case ">":
-          rel_sel_type_stack.append(Selector_Son)
+          comb_sel_type_stack.append(Selector_Son)
+        case ",":
+          built_sel = _build(read_sel_stack, comb_sel_type_stack, (source, index))
+          built_sels.append(built_sel)
         case _:
           raise ParseError.at("Read unknown separator: {:s}".format(repr(separator)), (source, index))
     else:
+      built_sel = _build(read_sel_stack, comb_sel_type_stack, (source, index))
+      built_sels.append(built_sel)
       break
-
-  #build selector tree.
-
-  if read_sel_stack:
-
-    #...
-
-    rel_sel_type_stack.insert(0, Selector_MatchAnywhere)
-
-    #...
-
-    read_sel_stack.append(Selector_MatchLast())
-    rel_sel_type_stack.append(Selector_Son)
-
-    #...
-
-    while rel_sel_type_stack:
-      rel_selector_type = rel_sel_type_stack.pop()
-      sel = rel_selector_type.from_stack(read_sel_stack)
-      read_sel_stack.append(sel)
-    sel = read_sel_stack[-1]
-    return sel
+  
+  if built_sels:
+    if len(built_sels) == 1:
+      return built_sels[0]
+    else:
+      return Selector_Or(built_sels)
   else:
-    raise ParseError.at("Could not read any selector even one.", (source, index))
+    raise ParseError("Could not build ISelector instance even once from source: {:s}".format(repr(source)))

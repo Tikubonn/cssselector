@@ -47,7 +47,7 @@ class TextExtractor (HTMLParser):
     if self.selector.match(self.element_stack):
       print(data)
 
-selector = cssselector.parse_selector("p > a[href]", match_children=False)
+selector = cssselector.parse_selector("p > a[href]")
 extractor = TextExtractor(selector)
 extractor.feed("""
 <html>
@@ -96,6 +96,12 @@ extractor.feed("""
 | --- | --- | --- |
 | 子結合子 | `A > B` | 指定要素が直下にあるならば一致します。 |
 | 子孫結合子 | `A B` | 指定要素が子要素として存在するならば一致します。 |
+
+### その他
+
+| 名称 | コード | 説明 |
+| --- | --- | --- |
+| セレクターリスト | `A,B,C` | 複数セレクターのうちいずれかに一致すれば一致扱いになります。 |
 
 ## Install
 
